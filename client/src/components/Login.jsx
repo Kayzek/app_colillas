@@ -13,27 +13,19 @@ const Login = () => {
         e.preventDefault();
         setError('');
         try {
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/auth/login`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ username, password }),
-            });
+            const data = await window.electronAPI.login({ username, password });
 
-            const data = await response.json();
-
-            if (response.ok && data.success) {
+            if (data.success) {
                 localStorage.setItem('uid', data.uid);
                 localStorage.setItem('password', password);
                 localStorage.setItem('username', username);
                 navigate('/home');
             } else {
-                setError(data.detail || 'Error de autenticación');
+                setError(data.message || data.detail || 'Error de autenticación');
             }
         } catch (err) {
             console.error("Login error:", err);
-            setError('Error de conexión con el servidor');
+            setError('Error de conexión con el servidor interno');
         }
     };
 

@@ -5,12 +5,16 @@ from typing import List
 import uvicorn
 import base64
 
+
+
 from odoo_rpc import (
     authenticate,
     get_payslip_runs,
     get_payslip_details,
     render_report_pdf
 )
+
+
 
 app = FastAPI(title="App Colillas API", version="1.0.0")
 
@@ -87,6 +91,9 @@ async def print_colillas(request: PrintRequest):
         return Response(content=pdf_bytes, media_type="application/pdf")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error procesando el PDF: {str(e)}")
+
+# Carpeta de assets estáticos (frontend)
+
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

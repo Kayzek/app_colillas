@@ -22,21 +22,14 @@ const Home = () => {
             }
 
             try {
-                const response = await fetch(`${import.meta.env.VITE_API_URL}/nomina/lotes`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ uid: parseInt(uid), password }),
-                });
+                const data = await window.electronAPI.getLotes({ uid: parseInt(uid), password });
 
-                if (response.ok) {
-                    const data = await response.json();
+                // Si la API devuelve un array directamente, asumimos éxito
+                if (Array.isArray(data)) {
                     setLotes(data);
                 } else {
-                    const errorData = await response.json();
-                    setError(errorData.detail || 'Error al obtener lotes');
-                    if (response.status === 401) {
+                    setError('Error al obtener lotes');
+                    if (data?.message === 'Credenciales inválidas') {
                         navigate('/');
                     }
                 }
@@ -63,18 +56,24 @@ const Home = () => {
                 const password = localStorage.getItem('password');
                 const username = localStorage.getItem('username');
 
-                const response = await fetch(`${import.meta.env.VITE_API_URL}/nomina/print`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ uid: parseInt(uid), password, lot_id: selectedLote, username }),
+                const result = await window.electronAPI.printColillas({
+                    uid: parseInt(uid),
+                    password,
+                    lotId: selectedLote,
+                    username
                 });
 
-                if (response.ok) {
-                    // Create a blob from the PDF Stream
-                    const blob = await response.blob();
-                    // Create a link to download it
+                if (result.success) {
+                    // Convertir Base64 a Blob
+                    const byteCharacters = atob(result.pdf_data);
+                    const byteNumbers = new Array(byteCharacters.length);
+                    for (let i = 0; i < byteCharacters.length; i++) {
+                        byteNumbers[i] = byteCharacters.charCodeAt(i);
+                    }
+                    const byteArray = new Uint8Array(byteNumbers);
+                    const blob = new Blob([byteArray], { type: 'application/pdf' });
+
+                    // Descargar
                     const url = window.URL.createObjectURL(blob);
                     const a = document.createElement('a');
                     a.href = url;
@@ -83,12 +82,11 @@ const Home = () => {
                     a.click();
                     a.remove();
                 } else {
-                    const errorData = await response.json();
-                    alert(`Error: ${errorData.detail || 'No se pudo generar el PDF'}`);
+                    alert(`Error: ${result.message || 'No se pudo generar el PDF'}`);
                 }
             } catch (err) {
                 console.error("Error printing:", err);
-                alert('Error de conexión al generar el PDF');
+                alert('Error de conexión al generar el PDF interno');
             } finally {
                 setLoading(false);
             }
