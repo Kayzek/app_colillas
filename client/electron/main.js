@@ -181,8 +181,6 @@ ipcMain.handle('print-colillas', async (event, { uid, password, lotId, username 
 
 // --- CONFIGURACIÓN DE VENTANA ---
 
-const isDev = process.env.NODE_ENV !== 'production';
-
 function createWindow() {
     const win = new BrowserWindow({
         width: 1280,
@@ -196,7 +194,7 @@ function createWindow() {
         // icon: path.join(__dirname, '../public/vite.svg') // Comentado por ahora
     });
 
-    if (isDev) {
+    if (!app.isPackaged) {
         win.loadURL('http://localhost:5173');
         win.webContents.openDevTools();
     } else {
