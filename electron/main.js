@@ -13,6 +13,8 @@ try {
 // Configuración Odoo (Intenta leer del .env, si no usa valores por defecto o lanza error)
 const ODOO_URL = process.env.ODOO_URL;
 const ODOO_DB = process.env.ODOO_DB;
+const ODOO_REPORT_PAGO = process.env.ODOO_REPORT_PAGO;
+const ODOO_REPORT_AGUINALDO = process.env.ODOO_REPORT_AGUINALDO;
 
 // Helpers para XML-RPC
 // Parsear URL para extraer host limpio
@@ -115,12 +117,7 @@ ipcMain.handle('print-colillas', async (event, { uid, password, lotId, username 
             { fields: ['struct_id'] }
         ]);
 
-        const isAguinaldo = payslips.some(p => p.struct_id && p.struct_id[1] && p.struct_id[1].includes('Aguinaldo'));
-        const reportXmlId = isAguinaldo
-            ? 'l10n_ni_formatos_dgi.report_boleta_aguinaldo_template'
-            : 'l10n_ni_formatos_dgi.report_boleta_pago_template';
-
-        console.log(`Usando reporte: ${reportXmlId}`);
+        const isAguinaldo = payslips.some(p => p.struct_id && p.struct_id[1] && p.struct_id[1].toLowerCase().includes('aguinaldo'));
 
         // --- B. Buscar el ID Técnico del Reporte ---
         const reports = await odooCall(objectClient, 'execute_kw', [
@@ -129,15 +126,32 @@ ipcMain.handle('print-colillas', async (event, { uid, password, lotId, username 
             { fields: ['id', 'report_name', 'name'] }
         ]);
 
-        let targetReport = reports.find(r =>
-            (isAguinaldo && r.report_name.toLowerCase().includes('aguinaldo')) ||
-            (!isAguinaldo && r.report_name.toLowerCase().includes('pago'))
-        );
+        let targetReport = null;
 
-        if (!targetReport && reports.length > 0) targetReport = reports[0]; // Fallback
-        if (!targetReport) return { success: false, message: 'No se encontró definición de reporte' };
+        // 1. Intentar usar variables de entorno si están definidas
+        if (isAguinaldo && ODOO_REPORT_AGUINALDO) {
+            targetReport = reports.find(r => r.report_name === ODOO_REPORT_AGUINALDO);
+        } else if (!isAguinaldo && ODOO_REPORT_PAGO) {
+            targetReport = reports.find(r => r.report_name === ODOO_REPORT_PAGO);
+        }
+
+        // 2. Fallback: Buscar por palabra clave en el nombre técnico del reporte
+        if (!targetReport) {
+            targetReport = reports.find(r =>
+                (isAguinaldo && r.report_name.toLowerCase().includes('aguinaldo')) ||
+                (!isAguinaldo && r.report_name.toLowerCase().includes('pago'))
+            );
+        }
+
+        // 3. Fallback final: Usar el primer reporte de nómina que exista (completamente agnóstico)
+        if (!targetReport && reports.length > 0) {
+            targetReport = reports[0]; 
+        }
+
+        if (!targetReport) return { success: false, message: 'No se encontró definición de reporte para hr.payslip' };
 
         const reportName = targetReport.report_name;
+        console.log(`Usando reporte técnico: ${reportName}`);
 
         // --- C. Descarga HTTP con Sesión (Axios) ---
         // 1. Autenticar sesión HTTP
@@ -191,7 +205,7 @@ function createWindow() {
             preload: path.join(__dirname, 'preload.js'),
         },
         autoHideMenuBar: true,
-        // icon: path.join(__dirname, '../public/vite.svg') // Comentado por ahora
+        icon: path.join(__dirname, '../public/logo.svg')
     });
 
     if (!app.isPackaged) {

@@ -28,4 +28,3 @@ release
 
 # Environment variables
 .env
-.env.*
